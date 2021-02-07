@@ -1,0 +1,89 @@
+#!/usr/bin/env ruby
+require 'fileutils'
+
+# path to your application root.
+APP_ROOT = File.expand_path('..', __dir__)
+
+NON_MOUNTED_DEV_FILES = %w[node_modules yarn.lock Gemfile coverage README.md spec].freeze
+NON_MOUNTED_TEST_FILES = %w[node_modules yarn.lock Gemfile README.md].freeze
+
+def system!(*args)
+  system(*args) || abort("\n== Command #{args} failed ==")
+end
+
+def parse_commands(args)
+  if args.empty? || args[0] == 'help'
+    usage
+  elsif args[0] == 'dev' || args[0] == 'test'
+    build_and_run(args[0])
+  elsif args[0] == 'deploy'
+    if ensure_deploy?
+      build_and_deploy
+    else
+      pp 'Aborting deployment'
+    end
+  else
+    incorrect_error
+  end
+end
+
+def usage
+  pp 'Usage'
+  pp '"bin/docker dev" for running the container locally'
+  pp '"bin/docker test" to run the tests'
+end
+
+# builds the image and run the container
+def build_and_run(env)
+  build(env)
+  run(env)
+end
+
+# builds the docker container
+def build(env)
+  system!("docker build --target #{env} -t jmaguire5588/rails_docker:#{env} ./")
+end
+
+# build the docker command into a string to be run
+def run(env)
+  cmd = "docker run --rm --name=rails_docker_#{env} "
+  cmd << '-p 3000:3000 -p 5432:5432 '
+  cmd << mounted_volumes(env)
+  cmd << "-it jmaguire5588/rails_docker:#{env}"
+  system!(cmd)
+end
+
+# Builds a list of the current files in the directory to mount to your docker container for
+# local dev, does not mount node_modules
+def mounted_volumes(env)
+  non_mounted_files = env == 'dev' ? NON_MOUNTED_DEV_FILES : NON_MOUNTED_TEST_FILES
+  files = Dir.glob('*')
+  files.reduce('') do |vol_string, file|
+    if non_mounted_files.include?(file)
+      vol_string
+    else
+      vol_string << "-v #{APP_ROOT}/#{file}:/app/#{file} "
+    end
+  end
+end
+
+def ensure_deploy?
+  pp 'WARNING: You will be building and deploying to production, is this what you intend? [Y/n]'
+  input = STDIN.gets.chomp
+  %w[Y y].include? input
+end
+
+def build_and_deploy
+  build('prod')
+  system!('docker tag jmaguire5588/rails_docker:prod registry.heroku.com/rails-docker-example/web')
+  system!('docker push registry.heroku.com/rails-docker-example/web')
+  system!('heroku container:release web -a rails-docker-example')
+end
+
+def incorrect_error
+  pp 'Error! That is not a recognized command'
+end
+
+FileUtils.chdir APP_ROOT do
+  parse_commands(ARGV)
+end
