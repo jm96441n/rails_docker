@@ -31,6 +31,7 @@ def usage
   pp 'Usage'
   pp '"bin/docker dev" for running the container locally'
   pp '"bin/docker test" to run the tests'
+  pp '"bin/docker deploy" to build and deploy to production'
 end
 
 # builds the image and run the container
