@@ -16,8 +16,12 @@ added those as secrets to this rails app. Following that you're set to run the a
 bin/docker dev
 ```
 (Note: you may need to give yourself permission to run this file with `chmod +x ./bin/docker`)
+This will spin up an application server that is accessible through `localhost:3000`
 
 ### Tests
 ```
 bin/docker test
 ```
+This command will run all of the tests for the application
+
+**TODO:** Add sub-commands to only run unit/integration/system
